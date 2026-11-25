@@ -1,661 +1,729 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
-  Check,
-  Copy,
-  Cpu,
-  Flame,
-  Gauge,
+  AudioLines,
+  Disc3,
   GitBranch,
-  Layers,
-  Lock,
-  Music2,
-  Palette,
-  Radar,
-  Shield,
+  Headphones,
+  ListMusic,
+  Pause,
+  Play,
+  Radio,
+  Repeat,
+  Repeat1,
+  Shuffle,
+  SkipBack,
+  SkipForward,
   Sparkles,
-  Terminal,
-  TrendingUp,
-  Zap,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
-type SystemMode = 'performance' | 'stealth' | 'overdrive';
+type RepeatMode = 'off' | 'all' | 'one';
 
-interface ModeTheme {
-  id: SystemMode;
-  label: string;
-  tagline: string;
-  icon: React.ComponentType<{ className?: string }>;
-  orbPrimary: string;
-  orbSecondary: string;
+interface SpatialTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  mood: string;
+  durationSec: number;
+  bpm: number;
+  spatialFormat: string;
+  meshPrimary: string;
+  meshSecondary: string;
+  meshTertiary: string;
+  accentHex: string;
   accentText: string;
   accentBorder: string;
   accentBg: string;
-  accentGlow: string;
-  barGradient: string;
-  ringGlow: string;
-  clockTarget: string;
-  powerDraw: string;
+  chordHz: [number, number, number, number];
 }
 
-const MODE_THEMES: Record<SystemMode, ModeTheme> = {
-  performance: {
-    id: 'performance',
-    label: 'Performance',
-    tagline: 'Balanced Neural Throughput',
-    icon: Gauge,
-    orbPrimary: 'rgba(6, 182, 212, 0.24)',
-    orbSecondary: 'rgba(99, 102, 241, 0.22)',
-    accentText: 'text-cyan-300',
-    accentBorder: 'border-cyan-400/40',
-    accentBg: 'bg-cyan-500/15',
-    accentGlow: 'shadow-[0_0_45px_-10px_rgba(34,211,238,0.45)]',
-    barGradient: 'from-cyan-400 via-sky-400 to-indigo-500',
-    ringGlow: 'rgba(34, 211, 238, 0.35)',
-    clockTarget: '4.85 GHz',
-    powerDraw: '68 W',
+const TRACKS: SpatialTrack[] = [
+  {
+    id: 'trk-1',
+    title: 'Neon Horizon (Spatial Mix)',
+    artist: 'Kaito & Vespera',
+    album: 'Aether Sessions Vol. IV',
+    mood: 'Euphoric Synthwave',
+    durationSec: 214,
+    bpm: 118,
+    spatialFormat: 'Dolby Atmos • 24-bit/96kHz',
+    meshPrimary: 'rgba(56, 189, 248, 0.28)',
+    meshSecondary: 'rgba(139, 92, 246, 0.26)',
+    meshTertiary: 'rgba(217, 70, 239, 0.16)',
+    accentHex: '#38bdf8',
+    accentText: 'text-sky-300',
+    accentBorder: 'border-sky-400/45',
+    accentBg: 'bg-sky-500/15',
+    chordHz: [146.83, 220.0, 277.18, 329.63], // Dmaj7
   },
-  stealth: {
-    id: 'stealth',
-    label: 'Stealth',
-    tagline: 'Encrypted Silent Envelope',
-    icon: Shield,
-    orbPrimary: 'rgba(16, 185, 129, 0.20)',
-    orbSecondary: 'rgba(56, 189, 248, 0.16)',
-    accentText: 'text-emerald-300',
-    accentBorder: 'border-emerald-400/40',
-    accentBg: 'bg-emerald-500/15',
-    accentGlow: 'shadow-[0_0_45px_-10px_rgba(16,185,129,0.42)]',
-    barGradient: 'from-emerald-400 via-teal-400 to-cyan-500',
-    ringGlow: 'rgba(16, 185, 129, 0.32)',
-    clockTarget: '2.90 GHz',
-    powerDraw: '24 W',
-  },
-  overdrive: {
-    id: 'overdrive',
-    label: 'Overdrive',
-    tagline: 'Unrestricted Quantum Boost',
-    icon: Flame,
-    orbPrimary: 'rgba(244, 63, 94, 0.25)',
-    orbSecondary: 'rgba(245, 158, 11, 0.20)',
+  {
+    id: 'trk-2',
+    title: 'Midnight Glass Cathedral',
+    artist: 'Solene Noir',
+    album: 'Obsidian Echoes',
+    mood: 'Deep Ambient House',
+    durationSec: 248,
+    bpm: 124,
+    spatialFormat: 'Spatial Lossless • 24-bit/192kHz',
+    meshPrimary: 'rgba(244, 63, 94, 0.26)',
+    meshSecondary: 'rgba(245, 158, 11, 0.20)',
+    meshTertiary: 'rgba(168, 85, 247, 0.18)',
+    accentHex: '#fb7185',
     accentText: 'text-rose-300',
     accentBorder: 'border-rose-400/45',
     accentBg: 'bg-rose-500/15',
-    accentGlow: 'shadow-[0_0_50px_-8px_rgba(244,63,94,0.50)]',
-    barGradient: 'from-rose-500 via-fuchsia-500 to-amber-400',
-    ringGlow: 'rgba(244, 63, 94, 0.40)',
-    clockTarget: '6.20 GHz',
-    powerDraw: '142 W',
-  },
-};
-
-interface SystemModule {
-  id: string;
-  name: string;
-  branch: string;
-  subtitle: string;
-  status: string;
-  icon: React.ComponentType<{ className?: string }>;
-  accent: string;
-  active?: boolean;
-}
-
-const SYSTEM_MODULES: SystemModule[] = [
-  {
-    id: 'hub',
-    name: 'Command Hub',
-    branch: 'main',
-    subtitle: '3D Cyber-Glass Core & Telemetry',
-    status: 'ACTIVE NODE',
-    icon: Layers,
-    accent: 'text-cyan-300',
-    active: true,
+    chordHz: [130.81, 196.0, 233.08, 293.66], // Cm9
   },
   {
-    id: 'crypto',
-    name: 'Crypto Terminal',
-    branch: 'feature/crypto-terminal',
-    subtitle: 'Institutional Live Order Book & SVG Charts',
-    status: 'READY ON BRANCH',
-    icon: TrendingUp,
-    accent: 'text-emerald-300',
+    id: 'trk-3',
+    title: 'Bioluminescent Drift',
+    artist: 'Aether Orchestra',
+    album: 'Submerged Signals',
+    mood: 'Emerald Downtempo',
+    durationSec: 196,
+    bpm: 96,
+    spatialFormat: 'Binaural 360° • Studio Master',
+    meshPrimary: 'rgba(16, 185, 129, 0.26)',
+    meshSecondary: 'rgba(6, 182, 212, 0.22)',
+    meshTertiary: 'rgba(59, 130, 246, 0.16)',
+    accentHex: '#34d399',
+    accentText: 'text-emerald-300',
+    accentBorder: 'border-emerald-400/45',
+    accentBg: 'bg-emerald-500/15',
+    chordHz: [164.81, 246.94, 293.66, 392.0], // Em7
   },
   {
-    id: 'ai',
-    name: 'AI Art Studio',
-    branch: 'feature/ai-studio',
-    subtitle: 'Generative Prompt Engine & Gallery',
-    status: 'READY ON BRANCH',
-    icon: Palette,
-    accent: 'text-fuchsia-300',
+    id: 'trk-4',
+    title: 'Ultraviolet Orbit',
+    artist: 'Mira & The Null Set',
+    album: 'Gravity Architecture',
+    mood: 'Cosmic Electro',
+    durationSec: 232,
+    bpm: 128,
+    spatialFormat: 'Dolby Atmos • 24-bit/96kHz',
+    meshPrimary: 'rgba(217, 70, 239, 0.28)',
+    meshSecondary: 'rgba(99, 102, 241, 0.25)',
+    meshTertiary: 'rgba(34, 211, 238, 0.16)',
+    accentHex: '#e879f9',
+    accentText: 'text-fuchsia-300',
+    accentBorder: 'border-fuchsia-400/45',
+    accentBg: 'bg-fuchsia-500/15',
+    chordHz: [174.61, 261.63, 329.63, 392.0], // Fmaj9
   },
   {
-    id: 'music',
-    name: 'Spatial Vinyl',
-    branch: 'feature/music-player',
-    subtitle: '32-Band Audio Visualizer & WebAudio Synth',
-    status: 'READY ON BRANCH',
-    icon: Music2,
-    accent: 'text-sky-300',
+    id: 'trk-5',
+    title: 'Solaris Velvet',
+    artist: 'Cassian Wells',
+    album: 'Warm Analog Tape',
+    mood: 'Golden Lo-Fi Analog',
+    durationSec: 185,
+    bpm: 90,
+    spatialFormat: 'Master Vinyl Cut • 96kHz',
+    meshPrimary: 'rgba(245, 158, 11, 0.26)',
+    meshSecondary: 'rgba(234, 88, 12, 0.22)',
+    meshTertiary: 'rgba(244, 63, 94, 0.15)',
+    accentHex: '#fbbf24',
+    accentText: 'text-amber-300',
+    accentBorder: 'border-amber-400/45',
+    accentBg: 'bg-amber-500/15',
+    chordHz: [196.0, 293.66, 349.23, 440.0], // Gm9
   },
 ];
 
-interface TelemetryState {
-  cpu: number;
-  neuralLatency: number;
-  gpuTensor: number;
-  memoryBandwidth: number;
-  packetsPerSec: number;
+function formatDuration(sec: number): string {
+  const safe = Math.max(0, Math.floor(sec));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-
-const INITIAL_EVENTS = [
-  'AetherKernel v4.0.8 handshake verified [0.4ms]',
-  'Neural fabric synchronized across 16 tensor lanes',
-  'Zero-trust enclave shield active on core bus',
-  'Spatial glass compositor locked at 120 Hz',
-];
 
 export function App() {
-  const [mode, setMode] = useState<SystemMode>('performance');
-  const [now, setNow] = useState<Date>(() => new Date());
-  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
-  const [isHoveringCard, setIsHoveringCard] = useState(false);
-  const [selectedModule, setSelectedModule] = useState<SystemModule>(SYSTEM_MODULES[0]);
-  const [copiedBranch, setCopiedBranch] = useState<string | null>(null);
-  const [diagnosticRunning, setDiagnosticRunning] = useState(false);
-  const [events, setEvents] = useState<string[]>(INITIAL_EVENTS);
-  const [telemetry, setTelemetry] = useState<TelemetryState>({
-    cpu: 42,
-    neuralLatency: 1.8,
-    gpuTensor: 64,
-    memoryBandwidth: 58,
-    packetsPerSec: 18420,
-  });
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [elapsedSec, setElapsedSec] = useState<number>(46);
+  const [volume, setVolume] = useState<number>(0.72);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [shuffle, setShuffle] = useState<boolean>(false);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('all');
+  const [synthEnabled, setSynthEnabled] = useState<boolean>(false);
+  const [eqBars, setEqBars] = useState<number[]>(() =>
+    Array.from({ length: 32 }, (_, i) => 18 + Math.round(Math.sin(i * 0.45) * 14 + 14))
+  );
 
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const theme = MODE_THEMES[mode];
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const oscNodesRef = useRef<OscillatorNode[]>([]);
+  const pulseTimerRef = useRef<number | null>(null);
 
-  // Real-time digital clock tick
-  useEffect(() => {
-    const clockId = window.setInterval(() => {
-      setNow(new Date());
-    }, 250);
-    return () => window.clearInterval(clockId);
-  }, []);
+  const track = TRACKS[currentIndex];
+  const effectiveVolume = isMuted ? 0 : volume;
 
-  // Live telemetry simulation tuned by active system mode
-  useEffect(() => {
-    const baseline =
-      mode === 'overdrive'
-        ? { cpu: 84, lat: 0.9, gpu: 91, mem: 79, pps: 42800 }
-        : mode === 'stealth'
-        ? { cpu: 16, lat: 3.1, gpu: 22, mem: 31, pps: 6200 }
-        : { cpu: 48, lat: 1.6, gpu: 63, mem: 54, pps: 19400 };
-
-    const clamp = (val: number, min: number, max: number) =>
-      Math.max(min, Math.min(max, val));
-
-    const timer = window.setInterval(() => {
-      setTelemetry((prev) => ({
-        cpu: Math.round(clamp(baseline.cpu + (Math.random() - 0.5) * 14, 6, 99)),
-        neuralLatency: Number(
-          clamp(baseline.lat + (Math.random() - 0.5) * 0.6, 0.4, 9.5).toFixed(2)
-        ),
-        gpuTensor: Math.round(clamp(baseline.gpu + (Math.random() - 0.5) * 16, 8, 99)),
-        memoryBandwidth: Math.round(
-          clamp(baseline.mem + (Math.random() - 0.5) * 10, 12, 98)
-        ),
-        packetsPerSec: Math.round(
-          clamp(prev.packetsPerSec * 0.35 + baseline.pps * 0.65 + (Math.random() - 0.5) * 2400, 1200, 58000)
-        ),
-      }));
-    }, 900);
-
-    return () => window.clearInterval(timer);
-  }, [mode]);
-
-  const formattedTime = useMemo(() => {
-    return now.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  }, [now]);
-
-  const formattedDate = useMemo(() => {
-    return now.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  }, [now]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = cardRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;
-    const py = (e.clientY - rect.top) / rect.height;
-    const rotateY = (px - 0.5) * 16;
-    const rotateX = (0.5 - py) * 14;
-    setTilt({
-      rotateX,
-      rotateY,
-      glareX: Math.round(px * 100),
-      glareY: Math.round(py * 100),
-    });
+  const selectTrack = (index: number, autoPlay = true) => {
+    setCurrentIndex(index);
+    setElapsedSec(0);
+    if (autoPlay) setIsPlaying(true);
   };
 
-  const handleMouseLeave = () => {
-    setIsHoveringCard(false);
-    setTilt({ rotateX: 0, rotateY: 0, glareX: 50, glareY: 50 });
-  };
-
-  const handleModeSwitch = (nextMode: SystemMode) => {
-    setMode(nextMode);
-    const nextTheme = MODE_THEMES[nextMode];
-    const stamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-    setEvents((prev) => [
-      `[${stamp}] Switched core profile -> ${nextTheme.label.toUpperCase()} (${nextTheme.clockTarget})`,
-      ...prev.slice(0, 4),
-    ]);
-  };
-
-  const runNeuralDiagnostic = () => {
-    if (diagnosticRunning) return;
-    setDiagnosticRunning(true);
-    const stamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-    setEvents((prev) => [
-      `[${stamp}] Running deep neural bus integrity sweep...`,
-      ...prev.slice(0, 4),
-    ]);
-    window.setTimeout(() => {
-      const doneStamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-      setDiagnosticRunning(false);
-      setEvents((prev) => [
-        `[${doneStamp}] Sweep passed: 0 packet drops · 99.98% coherence`,
-        ...prev.slice(0, 4),
-      ]);
-    }, 1200);
-  };
-
-  const copyCheckoutCommand = async (branch: string) => {
-    const cmd = `git checkout ${branch}`;
-    try {
-      await navigator.clipboard.writeText(cmd);
-    } catch {
-      // Fallback ignored if clipboard blocked in restricted context
+  const handleNext = () => {
+    if (shuffle && TRACKS.length > 1) {
+      let nextIdx = currentIndex;
+      while (nextIdx === currentIndex) {
+        nextIdx = Math.floor(Math.random() * TRACKS.length);
+      }
+      selectTrack(nextIdx, true);
+      return;
     }
-    setCopiedBranch(branch);
-    const stamp = new Date().toLocaleTimeString('en-US', { hour12: false });
-    setEvents((prev) => [
-      `[${stamp}] Copied branch switch command: ${cmd}`,
-      ...prev.slice(0, 4),
-    ]);
-    window.setTimeout(() => setCopiedBranch(null), 1800);
+    const nextIdx = (currentIndex + 1) % TRACKS.length;
+    selectTrack(nextIdx, true);
   };
 
-  const telemetryBars = [
-    {
-      label: 'CPU Core Fabric',
-      value: `${telemetry.cpu}%`,
-      percent: telemetry.cpu,
-      icon: Cpu,
-    },
-    {
-      label: 'Neural Latency',
-      value: `${telemetry.neuralLatency.toFixed(2)} ms`,
-      percent: Math.min(100, Math.round((10 - telemetry.neuralLatency) * 10)),
-      icon: Radar,
-    },
-    {
-      label: 'Tensor Pipeline',
-      value: `${telemetry.gpuTensor}%`,
-      percent: telemetry.gpuTensor,
-      icon: Sparkles,
-    },
-    {
-      label: 'Memory Bandwidth',
-      value: `${telemetry.memoryBandwidth}%`,
-      percent: telemetry.memoryBandwidth,
-      icon: Activity,
-    },
-  ];
+  const handlePrev = () => {
+    if (elapsedSec > 4) {
+      setElapsedSec(0);
+      return;
+    }
+    const prevIdx = (currentIndex - 1 + TRACKS.length) % TRACKS.length;
+    selectTrack(prevIdx, true);
+  };
+
+  const cycleRepeat = () => {
+    setRepeatMode((prev) => (prev === 'off' ? 'all' : prev === 'all' ? 'one' : 'off'));
+  };
+
+  // Playback progress timer
+  useEffect(() => {
+    if (!isPlaying) return;
+    const timer = window.setInterval(() => {
+      setElapsedSec((prev) => {
+        if (prev + 1 >= track.durationSec) {
+          if (repeatMode === 'one') {
+            return 0;
+          }
+          if (repeatMode === 'off' && currentIndex === TRACKS.length - 1 && !shuffle) {
+            setIsPlaying(false);
+            return track.durationSec;
+          }
+          window.setTimeout(() => handleNext(), 0);
+          return 0;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, track.durationSec, repeatMode, currentIndex, shuffle]);
+
+  // Real-time 32-bar frequency equalizer visualizer
+  useEffect(() => {
+    let phase = 0;
+    const interval = window.setInterval(() => {
+      phase += isPlaying ? 0.32 : 0.08;
+      setEqBars((prev) =>
+        prev.map((val, idx) => {
+          if (!isPlaying) {
+            return Math.max(8, Math.round(val * 0.78 + 8 * 0.22));
+          }
+          const bassWeight = idx < 8 ? 1.28 : idx < 20 ? 1.05 : 0.85;
+          const wave1 = Math.sin(phase + idx * 0.42) * 28;
+          const wave2 = Math.cos(phase * 1.45 - idx * 0.26) * 20;
+          const jitter = (Math.random() - 0.3) * 26;
+          const energy = Math.min(
+            98,
+            Math.max(12, Math.round((46 + wave1 + wave2 + jitter) * bassWeight * (0.45 + effectiveVolume * 0.65)))
+          );
+          return energy;
+        })
+      );
+    }, 95);
+
+    return () => window.clearInterval(interval);
+  }, [isPlaying, effectiveVolume, track.id]);
+
+  // Web Audio API Synthesized Ambient Chord + Subtle Beat Engine
+  useEffect(() => {
+    const cleanupSynth = () => {
+      if (pulseTimerRef.current !== null) {
+        window.clearInterval(pulseTimerRef.current);
+        pulseTimerRef.current = null;
+      }
+      for (const osc of oscNodesRef.current) {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch {
+          // Ignore already stopped oscillator
+        }
+      }
+      oscNodesRef.current = [];
+    };
+
+    if (!synthEnabled || !isPlaying) {
+      cleanupSynth();
+      return;
+    }
+
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      void ctx.resume();
+    }
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(Math.max(0.0001, effectiveVolume * 0.16), ctx.currentTime);
+    masterGainRef.current = masterGain;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(920, ctx.currentTime);
+    filter.Q.setValueAtTime(2.5, ctx.currentTime);
+
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    const createdOscs: OscillatorNode[] = [];
+    track.chordHz.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const voiceGain = ctx.createGain();
+      osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      osc.detune.setValueAtTime((idx - 1.5) * 6, ctx.currentTime);
+      voiceGain.gain.setValueAtTime(0.18 / track.chordHz.length, ctx.currentTime);
+      osc.connect(voiceGain);
+      voiceGain.connect(filter);
+      osc.start();
+      createdOscs.push(osc);
+    });
+    oscNodesRef.current = createdOscs;
+
+    // Subtle rhythmic pulse synced to track BPM
+    const beatMs = Math.round((60 / track.bpm) * 1000);
+    pulseTimerRef.current = window.setInterval(() => {
+      if (!audioCtxRef.current || !masterGainRef.current) return;
+      const now = audioCtxRef.current.currentTime;
+      const kickOsc = audioCtxRef.current.createOscillator();
+      const kickGain = audioCtxRef.current.createGain();
+      kickOsc.type = 'sine';
+      kickOsc.frequency.setValueAtTime(110, now);
+      kickOsc.frequency.exponentialRampToValueAtTime(42, now + 0.12);
+      kickGain.gain.setValueAtTime(0.22, now);
+      kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      kickOsc.connect(kickGain);
+      kickGain.connect(masterGainRef.current);
+      kickOsc.start(now);
+      kickOsc.stop(now + 0.2);
+    }, beatMs);
+
+    return cleanupSynth;
+  }, [synthEnabled, isPlaying, track.id, track.bpm, track.chordHz, effectiveVolume]);
+
+  // Smooth volume adjustment on live Web Audio gain
+  useEffect(() => {
+    if (masterGainRef.current && audioCtxRef.current) {
+      masterGainRef.current.gain.setTargetAtTime(
+        Math.max(0.0001, effectiveVolume * 0.16),
+        audioCtxRef.current.currentTime,
+        0.04
+      );
+    }
+  }, [effectiveVolume]);
+
+  const progressPct = useMemo(
+    () => Math.min(100, (elapsedSec / track.durationSec) * 100),
+    [elapsedSec, track.durationSec]
+  );
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#060913] text-slate-100 flex flex-col justify-between pb-28">
-      {/* Animated Cyber-Grid Background */}
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#060913] text-slate-100">
+      {/* Dynamic Shifting Spatial Mesh Gradients synced to active track mood */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-35 animate-grid-drift"
-        style={{
-          backgroundImage:
-            'linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-          maskImage: 'radial-gradient(ellipse 80% 75% at 50% 45%, black 35%, transparent 100%)',
-        }}
-      />
-
-      {/* Floating Radial Glow Orbs reacting to System Mode */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed -top-32 -left-24 h-[34rem] w-[34rem] rounded-full blur-[120px] transition-colors duration-700 animate-float-slow"
-        style={{ background: theme.orbPrimary }}
+        className="pointer-events-none fixed -top-32 -left-24 h-[38rem] w-[38rem] rounded-full blur-[150px] transition-colors duration-1000 animate-float-slow"
+        style={{ background: track.meshPrimary }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed bottom-10 -right-24 h-[32rem] w-[32rem] rounded-full blur-[130px] transition-colors duration-700 animate-float-reverse"
-        style={{ background: theme.orbSecondary }}
+        className="pointer-events-none fixed -bottom-32 -right-24 h-[38rem] w-[38rem] rounded-full blur-[150px] transition-colors duration-1000 animate-float-reverse"
+        style={{ background: track.meshSecondary }}
       />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed top-1/2 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[160px] transition-colors duration-1000"
+        style={{ background: track.meshTertiary }}
+      />
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 bg-cyber-grid opacity-20" />
 
-      {/* Top HUD Bar */}
-      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] backdrop-blur-xl transition-all duration-500 ${theme.accentGlow}`}
-          >
-            <Zap className={`h-5 w-5 transition-colors duration-500 ${theme.accentText}`} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-display text-sm font-bold tracking-[0.2em] text-white uppercase">
-                AetherOS
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono-tech text-[10px] text-slate-300">
-                v4.0
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">4-in-1 Modular Spatial Environment</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 backdrop-blur-xl">
-            <span className="relative flex h-2 w-2">
-              <span
-                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-                style={{ backgroundColor: theme.ringGlow }}
-              />
-              <span
-                className="relative inline-flex h-2 w-2 rounded-full"
-                style={{ backgroundColor: theme.ringGlow.replace('0.35', '1').replace('0.32', '1').replace('0.40', '1') }}
-              />
-            </span>
-            <span className="font-mono-tech text-[11px] tabular-nums text-slate-300">
-              {telemetry.packetsPerSec.toLocaleString()} pkt/s
-            </span>
-          </div>
-
-          <div
-            className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 backdrop-blur-xl transition-colors duration-500 ${theme.accentBorder} ${theme.accentBg}`}
-          >
-            <GitBranch className={`h-3.5 w-3.5 ${theme.accentText}`} />
-            <span className="font-mono-tech text-xs font-semibold tracking-wide text-white">
-              BRANCH: main
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main 3D Tilt Hero Stage */}
-      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 py-8">
-        <div
-          className="w-full max-w-4xl"
-          style={{ perspective: '1400px' }}
-          onMouseMove={handleMouseMove}
-          onMouseEnter={() => setIsHoveringCard(true)}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div
-            ref={cardRef}
-            className={`relative overflow-hidden rounded-3xl border border-white/15 bg-white/[0.035] p-6 sm:p-8 backdrop-blur-2xl transition-all duration-300 ease-out ${theme.accentGlow}`}
-            style={{
-              transform: `rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg) scale(${
-                isHoveringCard ? 1.012 : 1
-              })`,
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            {/* Interactive Mouse-Follow Specular Glare */}
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col justify-between px-4 py-5 sm:px-6">
+        {/* Top Spatial Header + Floating Branch Badge */}
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-              style={{
-                opacity: isHoveringCard ? 0.85 : 0.25,
-                background: `radial-gradient(650px circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(255,255,255,0.11), transparent 45%)`,
-              }}
-            />
-
-            {/* Top Hero Header & Real-Time Clock */}
-            <div className="relative flex flex-col gap-6 border-b border-white/10 pb-6 md:flex-row md:items-end md:justify-between">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                  <Lock className={`h-3 w-3 ${theme.accentText}`} />
-                  <span className="font-mono-tech text-[11px] tracking-[0.18em] text-slate-300 uppercase">
-                    Quantum Hypervisor Online
-                  </span>
-                </div>
-                <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white">
-                  AETHER OS <span className={`font-mono-tech ${theme.accentText}`}>//</span> CORE v4.0
-                </h1>
-                <p className="text-sm text-slate-400">
-                  Active Profile:{' '}
-                  <span className={`font-medium ${theme.accentText}`}>{theme.label}</span> —{' '}
-                  {theme.tagline}
-                </p>
-              </div>
-
-              {/* Real-Time Digital Clock */}
-              <div className="rounded-2xl border border-white/10 bg-[#060913]/65 px-5 py-3.5 text-left md:text-right backdrop-blur-xl">
-                <div className="font-mono-tech text-3xl sm:text-4xl font-bold tracking-tight tabular-nums text-white">
-                  {formattedTime}
-                </div>
-                <div className="mt-1 flex items-center md:justify-end gap-2 font-mono-tech text-[11px] uppercase tracking-widest text-slate-400">
-                  <span>{formattedDate}</span>
-                  <span className="text-slate-600">•</span>
-                  <span className={theme.accentText}>{theme.clockTarget}</span>
-                </div>
-              </div>
+              className={`flex h-11 w-11 items-center justify-center rounded-2xl border bg-white/[0.04] backdrop-blur-xl transition-colors duration-700 ${track.accentBorder}`}
+            >
+              <Headphones className={`h-5 w-5 transition-colors duration-700 ${track.accentText}`} />
             </div>
-
-            {/* Interactive System Mode Toggles */}
-            <div className="relative mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                {(Object.keys(MODE_THEMES) as SystemMode[]).map((modeKey) => {
-                  const item = MODE_THEMES[modeKey];
-                  const Icon = item.icon;
-                  const active = mode === modeKey;
-                  return (
-                    <button
-                      key={modeKey}
-                      type="button"
-                      onClick={() => handleModeSwitch(modeKey)}
-                      className={`group flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all duration-300 cursor-pointer ${
-                        active
-                          ? `${item.accentBorder} ${item.accentBg} text-white shadow-lg`
-                          : 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/25 hover:bg-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      <Icon
-                        className={`h-4 w-4 transition-transform duration-300 group-hover:scale-110 ${
-                          active ? item.accentText : 'text-slate-400 group-hover:text-slate-200'
-                        }`}
-                      />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-base font-bold tracking-[0.16em] text-white uppercase">
+                  AetherSound
+                </span>
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-colors duration-700 ${track.accentBorder} ${track.accentBg} ${track.accentText}`}
+                >
+                  SPATIAL AUDIO
+                </span>
               </div>
-
-              <button
-                type="button"
-                onClick={runNeuralDiagnostic}
-                disabled={diagnosticRunning}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-4 py-2.5 text-xs font-semibold tracking-wide text-slate-200 transition-all hover:border-white/30 hover:bg-white/[0.1] disabled:opacity-60 cursor-pointer"
-              >
-                <Activity
-                  className={`h-4 w-4 ${diagnosticRunning ? 'animate-spin ' : ''}${theme.accentText}`}
-                />
-                <span>{diagnosticRunning ? 'SCANNING BUS...' : 'RUN DIAGNOSTIC'}</span>
-              </button>
+              <p className="text-xs text-slate-400">{track.spatialFormat}</p>
             </div>
+          </div>
 
-            {/* Live Telemetry Bars Grid */}
-            <div className="relative mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {telemetryBars.map((metric) => {
-                const MetricIcon = metric.icon;
-                return (
+          <div className="flex items-center gap-3">
+            {/* Web Audio API Live Synth Toggle */}
+            <button
+              type="button"
+              onClick={() => setSynthEnabled((s) => !s)}
+              className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-xl transition cursor-pointer ${
+                synthEnabled
+                  ? `${track.accentBorder} ${track.accentBg} text-white shadow-lg`
+                  : 'border-white/15 bg-white/[0.04] text-slate-300 hover:border-white/30 hover:text-white'
+              }`}
+            >
+              <Radio className={`h-3.5 w-3.5 ${synthEnabled ? track.accentText : 'text-slate-400'}`} />
+              <span>{synthEnabled ? 'WebAudio Synth: ON' : 'Enable WebAudio Synth'}</span>
+            </button>
+
+            {/* Floating Badge at Top-Right */}
+            <div
+              className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 backdrop-blur-xl transition-colors duration-700 ${track.accentBorder} ${track.accentBg}`}
+            >
+              <GitBranch className={`h-3.5 w-3.5 ${track.accentText}`} />
+              <span className="font-mono text-xs font-semibold tracking-wide text-white">
+                BRANCH: feature/music-player
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Spatial Vinyl Stage + Glass Tracklist Sidebar */}
+        <main className="my-6 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
+          {/* Centerpiece Vinyl & Equalizer Stage (8 cols) */}
+          <section className="lg:col-span-8 rounded-3xl border border-white/12 bg-white/[0.03] p-6 sm:p-8 backdrop-blur-2xl shadow-[0_28px_90px_-24px_rgba(0,0,0,0.85)]">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-12 md:items-center">
+              {/* Spinning Glossy Black Vinyl Record */}
+              <div className="md:col-span-6 flex items-center justify-center">
+                <div className="relative flex h-64 w-64 items-center justify-center sm:h-76 sm:w-76">
+                  {/* Ambient Halo behind vinyl */}
                   <div
-                    key={metric.label}
-                    className="rounded-2xl border border-white/10 bg-[#060913]/55 p-4 transition-colors duration-300 hover:border-white/20"
+                    aria-hidden="true"
+                    className="absolute inset-4 rounded-full blur-2xl transition-colors duration-1000 animate-pulse-ring"
+                    style={{ background: track.meshPrimary }}
+                  />
+
+                  {/* Pivoting Tonearm Indicator */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -top-2 right-4 z-20 origin-top-right transition-transform duration-700 ease-out"
+                    style={{
+                      transform: isPlaying ? 'rotate(24deg)' : 'rotate(2deg)',
+                    }}
                   >
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <MetricIcon className={`h-4 w-4 ${theme.accentText}`} />
-                        <span className="font-medium">{metric.label}</span>
-                      </div>
-                      <span className="font-mono-tech font-semibold tabular-nums text-white">
-                        {metric.value}
-                      </span>
-                    </div>
-                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                      <div
-                        className={`h-full rounded-full bg-gradient-to-r ${theme.barGradient} transition-all duration-700 ease-out`}
-                        style={{ width: `${metric.percent}%` }}
-                      />
+                    <div className="h-5 w-5 rounded-full border border-white/25 bg-slate-800 shadow-lg" />
+                    <div className="mx-auto h-28 w-1.5 rounded-full bg-gradient-to-b from-slate-300 via-slate-400 to-slate-600 shadow-md" />
+                    <div className="mx-auto h-3.5 w-2.5 rounded-sm bg-white/80" />
+                  </div>
+
+                  {/* Spinning Vinyl Disc */}
+                  <div
+                    className="relative flex h-60 w-60 sm:h-72 sm:w-72 items-center justify-center rounded-full border border-white/15 shadow-[0_24px_70px_rgba(0,0,0,0.9)] animate-spin-vinyl"
+                    style={{
+                      animationPlayState: isPlaying ? 'running' : 'paused',
+                      background: `
+                        conic-gradient(from 40deg, rgba(255,255,255,0.12) 0deg, transparent 35deg, transparent 175deg, rgba(255,255,255,0.10) 210deg, transparent 250deg),
+                        repeating-radial-gradient(circle at center, #080a10 0px, #080a10 3px, #121725 4px, #090c14 6px)
+                      `,
+                    }}
+                  >
+                    {/* Glowing Album Art Core */}
+                    <div
+                      className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-full border-2 border-white/25 shadow-2xl transition-all duration-700"
+                      style={{
+                        background: `radial-gradient(circle at 30% 30%, ${track.accentHex}, #0f172a 80%)`,
+                        boxShadow: `0 0 36px -4px ${track.accentHex}`,
+                      }}
+                    >
+                      <Disc3 className="h-10 w-10 text-white/90" />
+                      {/* Center Spindle Hole */}
+                      <span className="absolute h-3.5 w-3.5 rounded-full border border-white/40 bg-[#060913]" />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Track Info, Scrubber & Transport Controls */}
+              <div className="md:col-span-6 flex flex-col justify-between space-y-5">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                    <Sparkles className={`h-3 w-3 ${track.accentText}`} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-300">
+                      {track.mood} • {track.bpm} BPM
+                    </span>
+                  </div>
+
+                  <h1 className="mt-3 font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                    {track.title}
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {track.artist} <span className="text-slate-600">•</span>{' '}
+                    <span className="text-slate-400">{track.album}</span>
+                  </p>
+                </div>
+
+                {/* Interactive Live Progress Scrubber */}
+                <div className="space-y-2">
+                  <div className="relative">
+                    <input
+                      type="range"
+                      min={0}
+                      max={track.durationSec}
+                      value={elapsedSec}
+                      onChange={(e) => setElapsedSec(Number(e.target.value))}
+                      aria-label="Track seek scrubber"
+                      className="w-full h-1.5 appearance-none rounded-full bg-white/15 cursor-pointer accent-white"
+                      style={{
+                        background: `linear-gradient(to right, ${track.accentHex} ${progressPct}%, rgba(255,255,255,0.12) ${progressPct}%)`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between font-mono text-[11px] tabular-nums text-slate-400">
+                    <span>{formatDuration(elapsedSec)}</span>
+                    <span>-{formatDuration(track.durationSec - elapsedSec)}</span>
+                  </div>
+                </div>
+
+                {/* Transport Buttons: Shuffle, Prev, Play/Pause, Next, Repeat */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShuffle((s) => !s)}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition cursor-pointer ${
+                      shuffle
+                        ? `${track.accentBorder} ${track.accentBg} ${track.accentText}`
+                        : 'border-white/10 bg-white/[0.03] text-slate-400 hover:text-white'
+                    }`}
+                    title="Shuffle"
+                  >
+                    <Shuffle className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handlePrev}
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.12] hover:text-white cursor-pointer"
+                      title="Previous track"
+                    >
+                      <SkipBack className="h-5 w-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPlaying((p) => !p)}
+                      className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-950 shadow-[0_0_35px_-4px_rgba(255,255,255,0.75)] transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                      title={isPlaying ? 'Pause' : 'Play'}
+                    >
+                      {isPlaying ? (
+                        <Pause className="h-6 w-6 fill-current" />
+                      ) : (
+                        <Play className="h-6 w-6 fill-current translate-x-0.5" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.12] hover:text-white cursor-pointer"
+                      title="Next track"
+                    >
+                      <SkipForward className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={cycleRepeat}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition cursor-pointer ${
+                      repeatMode !== 'off'
+                        ? `${track.accentBorder} ${track.accentBg} ${track.accentText}`
+                        : 'border-white/10 bg-white/[0.03] text-slate-400 hover:text-white'
+                    }`}
+                    title={`Repeat: ${repeatMode}`}
+                  >
+                    {repeatMode === 'one' ? (
+                      <Repeat1 className="h-4 w-4" />
+                    ) : (
+                      <Repeat className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Volume Slider */}
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#060913]/60 px-4 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted((m) => !m)}
+                    className="text-slate-300 hover:text-white cursor-pointer"
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted || volume === 0 ? (
+                      <VolumeX className="h-4 w-4 text-rose-400" />
+                    ) : (
+                      <Volume2 className={`h-4 w-4 ${track.accentText}`} />
+                    )}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={effectiveVolume}
+                    onChange={(e) => {
+                      setIsMuted(false);
+                      setVolume(Number(e.target.value));
+                    }}
+                    aria-label="Master volume"
+                    className="h-1.5 flex-1 appearance-none rounded-full bg-white/15 cursor-pointer accent-white"
+                    style={{
+                      background: `linear-gradient(to right, ${track.accentHex} ${
+                        effectiveVolume * 100
+                      }%, rgba(255,255,255,0.12) ${effectiveVolume * 100}%)`,
+                    }}
+                  />
+                  <span className="w-10 text-right font-mono text-[11px] tabular-nums text-slate-400">
+                    {Math.round(effectiveVolume * 100)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Real-Time Animated 32-Bar Frequency Audio Equalizer Visualizer */}
+            <div className="mt-8 rounded-2xl border border-white/10 bg-[#060913]/65 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AudioLines className={`h-4 w-4 ${track.accentText}`} />
+                  <span className="font-mono text-[11px] uppercase tracking-widest text-slate-300">
+                    32-Band Spatial Spectrum
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] tabular-nums text-slate-400">
+                  {isPlaying ? 'LIVE SIGNAL' : 'PAUSED'} • {track.bpm} BPM
+                </span>
+              </div>
+
+              <div className="flex h-24 items-end gap-1 sm:gap-1.5">
+                {eqBars.map((level, idx) => (
+                  <div
+                    key={idx}
+                    className="flex-1 rounded-t-full transition-all duration-100 ease-out"
+                    style={{
+                      height: `${level}%`,
+                      background: `linear-gradient(to top, ${track.accentHex}55, ${track.accentHex})`,
+                      boxShadow: isPlaying ? `0 0 12px -2px ${track.accentHex}88` : 'none',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Interactive Glass Tracklist Sidebar (4 cols) */}
+          <aside className="lg:col-span-4 rounded-3xl border border-white/12 bg-white/[0.03] p-5 backdrop-blur-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+              <div className="flex items-center gap-2">
+                <ListMusic className={`h-4 w-4 ${track.accentText}`} />
+                <h2 className="font-display text-sm font-bold tracking-wide text-white uppercase">
+                  Spatial Queue
+                </h2>
+              </div>
+              <span className="font-mono text-[11px] tabular-nums text-slate-400">
+                {TRACKS.length} tracks
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-2.5">
+              {TRACKS.map((item, idx) => {
+                const active = idx === currentIndex;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectTrack(idx, true)}
+                    className={`group flex w-full items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition-all duration-300 cursor-pointer ${
+                      active
+                        ? `${item.accentBorder} ${item.accentBg} shadow-lg`
+                        : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15"
+                        style={{
+                          background: `radial-gradient(circle at 30% 30%, ${item.accentHex}, #0b1020 85%)`,
+                        }}
+                      >
+                        {active && isPlaying ? (
+                          <AudioLines className="h-4 w-4 text-white animate-pulse" />
+                        ) : (
+                          <span className="font-mono text-xs font-bold text-white/90">
+                            0{idx + 1}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-white">
+                          {item.title}
+                        </div>
+                        <div className="truncate text-xs text-slate-400">
+                          {item.artist} • {item.mood}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right font-mono text-xs tabular-nums text-slate-400">
+                      <div>{formatDuration(item.durationSec)}</div>
+                      <div className="text-[10px] text-slate-500">{item.bpm} BPM</div>
+                    </div>
+                  </button>
                 );
               })}
             </div>
 
-            {/* Bottom Split: Selected Module Inspector & Live Kernel Feed */}
-            <div className="relative mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-              {/* Active/Selected Branch Module Card */}
-              <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-white/[0.025] p-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono-tech text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                      Module Inspector
-                    </span>
-                    <span className={`font-mono-tech text-[10px] font-semibold ${selectedModule.accent}`}>
-                      {selectedModule.status}
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex items-center gap-2.5">
-                    <selectedModule.icon className={`h-5 w-5 ${selectedModule.accent}`} />
-                    <h2 className="font-display text-base font-semibold text-white">
-                      {selectedModule.name}
-                    </h2>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-400">{selectedModule.subtitle}</p>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#060913]/80 px-3 py-2">
-                  <code className="truncate font-mono-tech text-[11px] text-slate-200">
-                    git checkout {selectedModule.branch}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copyCheckoutCommand(selectedModule.branch)}
-                    className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-slate-200 transition hover:bg-white/[0.12] cursor-pointer"
-                    title="Copy git checkout command"
-                  >
-                    {copiedBranch === selectedModule.branch ? (
-                      <>
-                        <Check className="h-3 w-3 text-emerald-400" />
-                        <span className="text-emerald-300">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-[#060913]/60 p-3.5 text-xs text-slate-400">
+              <div className="flex items-center justify-between font-mono text-[11px] text-slate-300">
+                <span>Atmosphere Engine</span>
+                <span className={track.accentText}>Synced to Track Mood</span>
               </div>
-
-              {/* Live Kernel Event Log */}
-              <div className="lg:col-span-3 rounded-2xl border border-white/10 bg-[#060913]/70 p-4">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Terminal className={`h-3.5 w-3.5 ${theme.accentText}`} />
-                    <span className="font-mono-tech text-[11px] uppercase tracking-widest text-slate-300">
-                      Kernel Stream
-                    </span>
-                  </div>
-                  <span className="font-mono-tech text-[11px] tabular-nums text-slate-400">
-                    TDP {theme.powerDraw}
-                  </span>
-                </div>
-                <div className="space-y-1.5 font-mono-tech text-[11px]">
-                  {events.map((line, idx) => (
-                    <div
-                      key={`${line}-${idx}`}
-                      className={`truncate rounded-lg px-2.5 py-1 ${
-                        idx === 0
-                          ? 'bg-white/[0.06] text-slate-100'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      <span className={`mr-2 ${theme.accentText}`}>&gt;</span>
-                      {line}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                Switching tracks dynamically morphs the spatial mesh gradient, vinyl core, spectrum glow, and WebAudio chord voicing.
+              </p>
             </div>
-          </div>
-        </div>
-      </main>
+          </aside>
+        </main>
 
-      {/* Floating Bottom macOS-Style Glass Dock */}
-      <nav
-        aria-label="AetherOS System Dock"
-        className="fixed bottom-5 left-1/2 z-30 -translate-x-1/2 px-4 w-full max-w-fit"
-      >
-        <div className="flex items-center gap-2 sm:gap-3 rounded-2xl border border-white/15 bg-[#0a0f1e]/75 px-3 py-2.5 backdrop-blur-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.85)]">
-          {SYSTEM_MODULES.map((mod) => {
-            const Icon = mod.icon;
-            const isSelected = selectedModule.id === mod.id;
-            return (
-              <button
-                key={mod.id}
-                type="button"
-                onClick={() => setSelectedModule(mod)}
-                className={`group relative flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 transition-all duration-300 cursor-pointer ${
-                  isSelected
-                    ? 'bg-white/[0.12] text-white border border-white/20 -translate-y-1 shadow-lg'
-                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-white hover:-translate-y-0.5 border border-transparent'
-                }`}
-              >
-                <Icon className={`h-5 w-5 transition-transform duration-300 group-hover:scale-110 ${mod.accent}`} />
-                <div className="hidden md:block text-left">
-                  <div className="text-xs font-semibold leading-none">{mod.name}</div>
-                  <div className="mt-1 font-mono-tech text-[10px] text-slate-400">
-                    {mod.branch}
-                  </div>
-                </div>
-                {mod.active && (
-                  <span
-                    className={`absolute -bottom-1 left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-gradient-to-r ${theme.barGradient}`}
-                  />
-                )}
-              </button>
-            );
-          })}
-
-          <div className="hidden sm:flex items-center gap-2 border-l border-white/10 pl-3 pr-1">
-            <GitBranch className={`h-3.5 w-3.5 ${theme.accentText}`} />
-            <span className="font-mono-tech text-[11px] font-medium text-slate-300">
-              BRANCH: main
-            </span>
-          </div>
-        </div>
-      </nav>
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 text-[11px] text-slate-500">
+          <span>AetherOS // Spatial Vinyl & Audio Visualizer Module</span>
+          <span className="font-mono tabular-nums">
+            Track {currentIndex + 1}/{TRACKS.length} • Repeat: {repeatMode.toUpperCase()} • Shuffle:{' '}
+            {shuffle ? 'ON' : 'OFF'}
+          </span>
+        </footer>
+      </div>
     </div>
   );
 }
